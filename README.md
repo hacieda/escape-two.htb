@@ -412,7 +412,7 @@ Connection from 10.10.11.51:49869
 
 Таким образом, у учетной записи `ryan` такой же пароль, как и у `sql_svc`, и дальнейший взлом мы продолжаем через неё
 ```
-Hexada@hexada ~/app/pentesting-tools/NetExec/nxc$ evil-winrm -i escape.two.htb -u ryan -p WqSZAF6CysDQbGb3                                                                        1 ↵ main 
+Hexada@hexada ~/app/pentesting-tools/NetExec/nxc$ evil-winrm -i escape.two.htb -u ryan -p WqSZA*****
                                         
 Evil-WinRM shell v3.7
                                         
