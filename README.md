@@ -388,7 +388,7 @@ NULL
 
 ![image](https://github.com/user-attachments/assets/b0bb835b-4b47-49a4-98a1-81265f87eb7b)
 
-о про второй способ я только сейчас узнал
+про второй способ я только сейчас узнал
 
 У меня с этим были проблемы, я использовал разные **reverse shell** скрипты, чтоб получить доступ к хосту, но у меня возникала одна и та же проблема, скрипт брал тут https://www.revshells.com/
 ```
@@ -433,4 +433,148 @@ Info: Establishing connection to remote endpoint
 
 ---
 
+Теперь, давайте собирать информацию о учётной записи, чтоб найти какие-то лазейки, как получить доступ к правам администратора
+```
+*Evil-WinRM* PS C:\Users\ryan> whoami /priv
 
+PRIVILEGES INFORMATION
+----------------------
+
+Privilege Name                Description                    State
+============================= ============================== =======
+SeMachineAccountPrivilege     Add workstations to domain     Enabled
+SeChangeNotifyPrivilege       Bypass traverse checking       Enabled
+SeIncreaseWorkingSetPrivilege Increase a process working set Enabled
+```
+
+Вот что я нарыл в интернете:
+
+`SeMachineAccountPrivilege` - Это привилегия, позволяющая добавлять рабочие станции в домен. В контексте взлома, это может быть полезно, если мы хотим добавить машину в домен
+`SeChangeNotifyPrivilege` - Эта привилегия позволяет обойти проверку обхода директории (**traverse checking**). Она позволяет перемещаться по каталогу, даже если у вас нет доступа к некоторым его частям. Это может быть полезно для обхода ограничений на доступ к некоторым файлам или каталогам
+`SeIncreaseWorkingSetPrivilege`: Привилегия для увеличения рабочего набора процесса. Рабочий набор — это набор страниц памяти, которые процесс может использовать. Это не так критично для пентестинга, но может быть полезно для повышения производительности некоторых процессов
+
+к сожалению, с использованием этих привилегий напрямую не получится получить доступ к правам администратора или выполнить эскалацию привилегий до уровня администратора
+
+```
+*Evil-WinRM* PS C:\Users\ryan> Get-ADUser -Identity ryan -Properties *
+
+AccountExpirationDate                :
+accountExpires                       : 9223372036854775807
+AccountLockoutTime                   :
+AccountNotDelegated                  : False
+AllowReversiblePasswordEncryption    : False
+AuthenticationPolicy                 : {}
+AuthenticationPolicySilo             : {}
+BadLogonCount                        : 0
+badPasswordTime                      : 133624191685678355
+badPwdCount                          : 0
+CannotChangePassword                 : False
+CanonicalName                        : sequel.htb/Users/Ryan Howard
+Certificates                         : {}
+City                                 :
+CN                                   : Ryan Howard
+codePage                             : 0
+Company                              :
+CompoundIdentitySupported            : {}
+Country                              :
+countryCode                          : 0
+Created                              : 6/8/2024 9:55:45 AM
+createTimeStamp                      : 6/8/2024 9:55:45 AM
+Deleted                              :
+Department                           :
+Description                          :
+DisplayName                          : Ryan Howard
+DistinguishedName                    : CN=Ryan Howard,CN=Users,DC=sequel,DC=htb
+Division                             :
+DoesNotRequirePreAuth                : False
+dSCorePropagationData                : {12/31/1600 4:00:00 PM}
+EmailAddress                         :
+EmployeeID                           :
+EmployeeNumber                       :
+Enabled                              : True
+Fax                                  :
+GivenName                            : Ryan
+HomeDirectory                        :
+HomedirRequired                      : False
+HomeDrive                            :
+HomePage                             :
+HomePhone                            :
+Initials                             :
+instanceType                         : 4
+isDeleted                            :
+KerberosEncryptionType               : {}
+LastBadPasswordAttempt               : 6/9/2024 8:06:08 AM
+LastKnownParent                      :
+lastLogoff                           : 0
+lastLogon                            : 133624269862491870
+LastLogonDate                        : 2/12/2025 11:48:08 AM
+lastLogonTimestamp                   : 133838632880775571
+LockedOut                            : False
+logonCount                           : 29
+LogonWorkstations                    :
+Manager                              :
+MemberOf                             : {CN=Management Department,CN=Users,DC=sequel,DC=htb, CN=Remote Management Users,CN=Builtin,DC=sequel,DC=htb}
+MNSLogonAccount                      : False
+MobilePhone                          :
+Modified                             : 2/12/2025 11:48:08 AM
+modifyTimeStamp                      : 2/12/2025 11:48:08 AM
+msDS-User-Account-Control-Computed   : 0
+Name                                 : Ryan Howard
+nTSecurityDescriptor                 : System.DirectoryServices.ActiveDirectorySecurity
+ObjectCategory                       : CN=Person,CN=Schema,CN=Configuration,DC=sequel,DC=htb
+ObjectClass                          : user
+ObjectGUID                           : ee8fc0b1-97d3-4a3e-9fd2-d187c0b510fa
+objectSid                            : S-1-5-21-548670397-972687484-3496335370-1114
+Office                               :
+OfficePhone                          :
+Organization                         :
+OtherName                            :
+PasswordExpired                      : False
+PasswordLastSet                      : 6/8/2024 9:55:45 AM
+PasswordNeverExpires                 : True
+PasswordNotRequired                  : False
+POBox                                :
+PostalCode                           :
+PrimaryGroup                         : CN=Domain Users,CN=Users,DC=sequel,DC=htb
+primaryGroupID                       : 513
+PrincipalsAllowedToDelegateToAccount : {}
+ProfilePath                          :
+ProtectedFromAccidentalDeletion      : False
+pwdLastSet                           : 133623393456777728
+SamAccountName                       : ryan
+sAMAccountType                       : 805306368
+ScriptPath                           :
+sDRightsEffective                    : 0
+ServicePrincipalNames                : {}
+SID                                  : S-1-5-21-548670397-972687484-3496335370-1114
+SIDHistory                           : {}
+SmartcardLogonRequired               : False
+sn                                   : Howard
+State                                :
+StreetAddress                        :
+Surname                              : Howard
+Title                                :
+TrustedForDelegation                 : False
+TrustedToAuthForDelegation           : False
+UseDESKeyOnly                        : False
+userAccountControl                   : 66048
+userCertificate                      : {}
+UserPrincipalName                    : ryan@sequel.htb
+uSNChanged                           : 217220
+uSNCreated                           : 12871
+whenChanged                          : 2/12/2025 11:48:08 AM
+whenCreated                          : 6/8/2024 9:55:45 AM
+```
+
+Команда `Get-ADUser -Identity ryan -Properties *` используется в **PowerShell** для получения информации о пользователе из **Active Directory**
+
+**Нас интересует следуйщее:**
+
+**ServicePrincipalNames (SPN)** - Это атрибут, который хранит имена сервисов, связанные с учетной записью. Он необходим для проведения **Targeted Kerberoasting** атаки. Если этот атрибут пустой (в нашем случае так и есть), это означает, что данная учетная запись не имеет связанных с ней **SPN**, и для атаки необходимо будет искать другие учетные записи с заполненным полем **SPN**.
+
+**SPN** — это уникальный идентификатор, который используется для привязки службы (например, **SQL Server** или других сервисов) к определенному пользователю в **Active Directory**. **SPN** необходим для того, чтобы **Kerberos** мог правильно аутентифицировать пользователя, обращающегося к сервису
+
+**Targeted Kerberoasting** атака включает следуйщие шаги:
+С привилегией **WriteOwner** нам нужно привязать или создать **Service Principal Name (SPN)** для учетной записи пользователя
+Используя созданный или прикрепленный **SPN**, нам нужно запросить **Ticket Granting Service (TGS)** для этой учетной записи
+Как только у нас будет **TGS**, мы попытаемся расшифровать его, так как он зашифрован **NTLM-хэшем** пароля, и с его помощью захватить учетную запись администратора
